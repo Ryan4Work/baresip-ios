@@ -1,313 +1,210 @@
 #
 # contrib.mk
+# Use CMake to build baresip for iOS, simplifying the process by compiling multiple architectures simultaneously
 #
 # Copyright (C) 2010 - 2020 Alfred E. Heggestad
 #
 
-DEPLOYMENT_TARGET_VERSION=6.0
+DEPLOYMENT_TARGET_VERSION=12.0
 
 #
-# path to external source code
+# Path settings
 #
 
-SOURCE_PATH	:= $(shell pwd)
+SOURCE_PATH   := $(CURDIR)
 
-LIBRE_PATH	:= $(SOURCE_PATH)/re
-LIBREM_PATH	:= $(SOURCE_PATH)/rem
-BARESIP_PATH	:= $(SOURCE_PATH)/baresip
+OPENSSL_SOURCE  := $(SOURCE_PATH)/openssl.tar.gz
+LIBRE_PATH    := $(SOURCE_PATH)/re
+BARESIP_PATH  := $(SOURCE_PATH)/baresip
 
+BUILD_DIR     := $(CURDIR)/build
+CONTRIB_DIR   := $(CURDIR)/contrib
 
-#
-# tools and SDK
-#
+# Define build directories for device and simulator
+BUILD_OPENSSL				:= $(BUILD_DIR)/openssl
+BUILD_DEVICE				:= $(BUILD_DIR)/device
+BUILD_SIMULATOR			:= $(BUILD_DIR)/simulator
 
-# Auto-detect the latest SDK
-ifeq ($(SDK_VER),)
-SDK_VER   := $(shell xcrun -find -sdk iphoneos --show-sdk-version)
-endif
-ifeq ($(SDK_VER),)
-$(warning no iPhone SDK detected)
-endif
+CONTRIB_DEVICE     := $(CONTRIB_DIR)/device
+CONTRIB_SIMULATOR  := $(CONTRIB_DIR)/simulator
 
-SDK_MAJOR	:= $(shell echo $(SDK_VER) | cut -d'.' -f 1)
-SDK_MINOR	:= $(shell echo $(SDK_VER) | cut -d'.' -f 2)
-SDK_ARM		:= $(shell xcrun -find -sdk iphoneos --show-sdk-path)
-SDK_SIM		:= $(shell xcrun -find -sdk iphonesimulator --show-sdk-path)
-CC_ARM		:= $(shell xcrun -find -sdk iphoneos gcc)
-CC_SIM		:= $(shell xcrun -find -sdk iphonesimulator gcc)
-
-CC_ARM_FLAGS := -fembed-bitcode
-CC_SIM_FLAGS := -fembed-bitcode
-
-CONTRIB_DIR	:= $(PWD)/contrib
-CONTRIB_AARCH64	:= $(CONTRIB_DIR)/aarch64
-CONTRIB_ARMV7	:= $(CONTRIB_DIR)/armv7
-CONTRIB_ARMV7S	:= $(CONTRIB_DIR)/armv7s
-CONTRIB_X86_64	:= $(CONTRIB_DIR)/x86_64
-CONTRIB_FAT	:= $(CONTRIB_DIR)/fat
-
-BUILD_DIR	:= $(PWD)/build
-BUILD_AARCH64	:= $(BUILD_DIR)/aarch64
-BUILD_ARMV7	:= $(BUILD_DIR)/armv7
-BUILD_ARMV7S	:= $(BUILD_DIR)/armv7s
-BUILD_X86_64	:= $(BUILD_DIR)/x86_64
-BUILD_FAT	:= $(BUILD_DIR)/fat
-
-ARMROOT		:= $(SDK_ARM)/usr
-ARMROOT_ALT	:= $(CONTRIB_FAT)
-SIMROOT		:= $(SDK_SIM)/usr
-SIMROOT_ALT	:= $(CONTRIB_FAT)
-
-EXTRA_CFLAGS       := -DIPHONE -pipe -no-cpp-precomp -isysroot $(SDK_ARM)
-EXTRA_CFLAGS_SIM   := -DIPHONE -pipe -no-cpp-precomp -isysroot $(SDK_SIM)
-EXTRA_CFLAGS_AARCH64 := -arch aarch64 -I$(CONTRIB_AARCH64)/include $(EXTRA_CFLAGS)
-EXTRA_CFLAGS_ARMV7 := -arch armv7 -I$(CONTRIB_ARMV7)/include $(EXTRA_CFLAGS)
-EXTRA_CFLAGS_ARMV7S := -arch armv7s -I$(CONTRIB_ARMV7S)/include $(EXTRA_CFLAGS)
-EXTRA_CFLAGS_X86_64  := -arch x86_64 -I$(CONTRIB_X86_64)/include $(EXTRA_CFLAGS_SIM)
-
-EXTRA_LFLAGS       := -L$(CONTRIB_FAT)/lib -isysroot $(SDK_ARM)
-EXTRA_LFLAGS_SIM   := -L$(CONTRIB_FAT)/lib -isysroot $(SDK_SIM)
-EXTRA_LFLAGS_AARCH64 := -arch aarch64 -L$(CONTRIB_AARCH64)/lib $(EXTRA_LFLAGS)
-EXTRA_LFLAGS_ARMV7 := -arch armv7 -L$(CONTRIB_ARMV7)/lib $(EXTRA_LFLAGS)
-EXTRA_LFLAGS_ARMV7S := -arch armv7s -L$(CONTRIB_ARMV7S)/lib $(EXTRA_LFLAGS)
-EXTRA_LFLAGS_X86_64  := -arch x86_64 -L$(CONTRIB_X86_64)/lib $(EXTRA_LFLAGS_SIM)
-
-
-EXTRA_X86_64      := \
-	EXTRA_CFLAGS='-D__DARWIN_ONLY_UNIX_CONFORMANCE \
-		-mios-simulator-version-min=$(DEPLOYMENT_TARGET_VERSION) \
-		-Wno-cast-align -Wno-shorten-64-to-32 \
-		-Wno-aggregate-return \
-		-arch x86_64 \
-		-isysroot $(SDK_SIM) \
-		-I$(CONTRIB_X86_64)/include \
-		-I$(CONTRIB_X86_64)/include/rem' \
-	OBJCFLAGS='-fobjc-abi-version=2 -fobjc-legacy-dispatch' \
-	EXTRA_LFLAGS='-mios-simulator-version-min=$(DEPLOYMENT_TARGET_VERSION) -arch x86_64 -L$(CONTRIB_FAT)/lib \
-		-isysroot $(SDK_SIM)'
-
-EXTRA_AARCH64       := \
-	EXTRA_CFLAGS='-arch arm64 \
-		-I$(CONTRIB_AARCH64)/include \
-		-I$(CONTRIB_AARCH64)/include/rem \
-		-Wno-cast-align -Wno-shorten-64-to-32 \
-		-Wno-aggregate-return \
-		-miphoneos-version-min=$(DEPLOYMENT_TARGET_VERSION) \
-		-isysroot $(SDK_ARM) -DHAVE_AARCH64' \
-	EXTRA_LFLAGS='-arch arm64 -mcpu=generic -marm \
-		-L$(CONTRIB_FAT)/lib -isysroot $(SDK_ARM)' \
-	OS=darwin ARCH=arm64 CROSS_COMPILE=$(ARM_MACHINE) \
-	HAVE_ARM64=1
-
-EXTRA_ARMV7       := \
-	EXTRA_CFLAGS='-arch armv7 \
-		-I$(CONTRIB_ARMV7)/include \
-		-I$(CONTRIB_ARMV7)/include/rem \
-		-Wno-cast-align -Wno-shorten-64-to-32 \
-		-Wno-aggregate-return \
-		-miphoneos-version-min=$(DEPLOYMENT_TARGET_VERSION) \
-		-isysroot $(SDK_ARM) -DHAVE_NEON' \
-	EXTRA_LFLAGS='-arch armv7 -mcpu=cortex-a8 -mfpu=neon -marm \
-		-L$(CONTRIB_FAT)/lib -isysroot $(SDK_ARM)' \
-	OS=darwin ARCH=armv7 CROSS_COMPILE=$(ARM_MACHINE) \
-	HAVE_NEON=1
-
-EXTRA_ARMV7S       := \
-	EXTRA_CFLAGS='-arch armv7s \
-		-I$(CONTRIB_ARMV7S)/include \
-		-I$(CONTRIB_ARMV7S)/include/rem \
-		-Wno-cast-align -Wno-shorten-64-to-32 \
-		-Wno-aggregate-return \
-		-miphoneos-version-min=$(DEPLOYMENT_TARGET_VERSION) \
-		-isysroot $(SDK_ARM) -DHAVE_NEON' \
-	EXTRA_LFLAGS='-arch armv7s -mcpu=cortex-a8 -mfpu=neon -marm \
-		-L$(CONTRIB_FAT)/lib -isysroot $(SDK_ARM)' \
-	OS=darwin ARCH=armv7s CROSS_COMPILE=$(ARM_MACHINE) \
-	HAVE_NEON=1
-
+CONTRIB_DEVICE_OPENSSL    := $(CONTRIB_DEVICE)/openssl
+CONTRIB_SIMULATOR_OPENSSL := $(CONTRIB_SIMULATOR)/openssl
 
 #
-# common targets
+# Tools and SDK
 #
 
-.PHONY: contrib
-contrib:	baresip
-
-
-$(BUILD_AARCH64) $(BUILD_ARMV7) $(BUILD_ARMV7S) $(BUILD_X86_64) $(BUILD_FAT):
-	@mkdir -p $@
-
-$(CONTRIB_FAT) $(CONTRIB_FAT)/lib:
-	@mkdir -p $@
-
+# Automatically detect the latest SDK paths and compilers
+SDK_ARM := $(shell xcrun -sdk iphoneos --show-sdk-path)
+SDK_SIM := $(shell xcrun -sdk iphonesimulator --show-sdk-path)
+CC_ARM  := $(shell xcrun -sdk iphoneos -find clang)
+CPP_ARM := $(shell xcrun -sdk iphoneos -find clang++)
+CC_SIM  := $(shell xcrun -sdk iphonesimulator -find clang)
+CPP_SIM := $(shell xcrun -sdk iphonesimulator -find clang++)
 
 #
-# libre
+# OPENSSL configuration
 #
 
-LIBRE_BUILD_FLAGS := \
-	USE_OPENSSL= OPENSSL_OPT= USE_ZLIB= OPT_SPEED=1 USE_APPLE_COMMONCRYPTO=1
-
-libre: $(CONTRIB_FAT)/lib
-	@rm -f $(LIBRE_PATH)/libre.*
-	@make -sC $(LIBRE_PATH) CC='$(CC_ARM) $(CC_ARM_FLAGS)' \
-		BUILD=$(BUILD_AARCH64)/libre \
-		SYSROOT=$(ARMROOT) SYSROOT_ALT=$(ARMROOT_ALT) \
-		$(LIBRE_BUILD_FLAGS) $(EXTRA_AARCH64) \
-		PREFIX= DESTDIR=$(CONTRIB_AARCH64) \
-		all install
-
-	@rm -f $(LIBRE_PATH)/libre.*
-	@make -sC $(LIBRE_PATH) CC='$(CC_ARM) $(CC_ARM_FLAGS)' \
-		BUILD=$(BUILD_ARMV7S)/libre \
-		SYSROOT=$(ARMROOT) SYSROOT_ALT=$(ARMROOT_ALT) \
-		$(LIBRE_BUILD_FLAGS) $(EXTRA_ARMV7S) \
-		PREFIX= DESTDIR=$(CONTRIB_ARMV7S) \
-		all install
-
-	@rm -f $(LIBRE_PATH)/libre.*
-	@make -sC $(LIBRE_PATH) CC='$(CC_ARM) $(CC_ARM_FLAGS)' \
-		BUILD=$(BUILD_ARMV7)/libre \
-		SYSROOT=$(ARMROOT) SYSROOT_ALT=$(ARMROOT_ALT) \
-		$(LIBRE_BUILD_FLAGS) $(EXTRA_ARMV7) \
-		PREFIX= DESTDIR=$(CONTRIB_ARMV7) \
-		all install
-
-	@rm -f $(LIBRE_PATH)/libre.*
-	@make -sC $(LIBRE_PATH) CC='$(CC_SIM) $(CC_SIM_FLAGS)' \
-		BUILD=$(BUILD_X86_64)/libre \
-		SYSROOT=$(SIMROOT) SYSROOT_ALT=$(SIMROOT_ALT) \
-		$(LIBRE_BUILD_FLAGS) $(EXTRA_X86_64) \
-		PREFIX= DESTDIR=$(CONTRIB_X86_64) \
-		all install
-
-	@lipo \
-		-arch x86_64 $(CONTRIB_X86_64)/lib/libre.a \
-		-arch arm64 $(CONTRIB_AARCH64)/lib/libre.a \
-		-arch armv7 $(CONTRIB_ARMV7)/lib/libre.a \
-		-arch armv7s $(CONTRIB_ARMV7S)/lib/libre.a \
-		-create -output $(CONTRIB_FAT)/lib/libre.a
-
+OPENSSL_DEVICE_TARGETS := ios64-xcrun
+OPENSSL_SIMULATOR_TARGETS := iossimulator-x86_64-xcrun iossimulator-arm64-xcrun
 
 #
-# librem
+# Common settings
 #
 
-LIBREM_BUILD_FLAGS := \
-	OPENSSL_OPT= OPT_SPEED=1 
+CMAKE_GENERATOR := Unix Makefiles
 
-librem: libre
-	@rm -f $(LIBREM_PATH)/librem.*
-	@make -sC $(LIBREM_PATH) CC='$(CC_ARM) $(CC_ARM_FLAGS)' \
-		BUILD=$(BUILD_AARCH64)/librem \
-		SYSROOT=$(ARMROOT) SYSROOT_ALT=$(ARMROOT_ALT) \
-		$(LIBREM_BUILD_FLAGS) $(EXTRA_AARCH64) \
-		PREFIX= DESTDIR=$(CONTRIB_AARCH64) \
-		all install
+CMAKE_FLAGS_COMMON := -DCMAKE_SYSTEM_NAME=iOS \
+											-DCMAKE_OSX_DEPLOYMENT_TARGET=$(DEPLOYMENT_TARGET_VERSION) \
+											-DCMAKE_BUILD_TYPE=Release
 
-	@rm -f $(LIBREM_PATH)/librem.*
-	@make -sC $(LIBREM_PATH) CC='$(CC_ARM) $(CC_ARM_FLAGS)' \
-		BUILD=$(BUILD_ARMV7)/librem \
-		SYSROOT=$(ARMROOT) SYSROOT_ALT=$(ARMROOT_ALT) \
-		$(LIBREM_BUILD_FLAGS) $(EXTRA_ARMV7) \
-		PREFIX= DESTDIR=$(CONTRIB_ARMV7) \
-		all install
+CMAKE_FLAGS_RE := $(CMAKE_FLAGS_COMMON) \
+  								-DCMAKE_C_FLAGS="-Werror -Wno-deprecated-declarations -Wno-incompatible-pointer-types -Wno-cast-align -Wno-shorten-64-to-32 -Wno-aggregate-return"
 
-	@rm -f $(LIBREM_PATH)/librem.*
-	@make -sC $(LIBREM_PATH) CC='$(CC_ARM) $(CC_ARM_FLAGS)' \
-		BUILD=$(BUILD_ARMV7S)/librem \
-		SYSROOT=$(ARMROOT) SYSROOT_ALT=$(ARMROOT_ALT) \
-		$(LIBREM_BUILD_FLAGS) $(EXTRA_ARMV7S) \
-		PREFIX= DESTDIR=$(CONTRIB_ARMV7S) \
-		all install
-
-	@rm -f $(LIBREM_PATH)/librem.*
-	@make -sC $(LIBREM_PATH) CC='$(CC_SIM) $(CC_SIM_FLAGS)' \
-		BUILD=$(BUILD_X86_64)/librem \
-		SYSROOT=$(SIMROOT) SYSROOT_ALT=$(SIMROOT_ALT) \
-		$(LIBREM_BUILD_FLAGS) $(EXTRA_X86_64) \
-		PREFIX= DESTDIR=$(CONTRIB_X86_64) \
-		all install
-
-	@lipo \
-		-arch x86_64 $(CONTRIB_X86_64)/lib/librem.a \
-		-arch arm64 $(CONTRIB_AARCH64)/lib/librem.a \
-		-arch armv7 $(CONTRIB_ARMV7)/lib/librem.a \
-		-arch armv7s $(CONTRIB_ARMV7S)/lib/librem.a \
-		-create -output $(CONTRIB_FAT)/lib/librem.a
-
+CMAKE_FLAGS_BARESIP := $(CMAKE_FLAGS_COMMON) \
+                       -DCMAKE_MACOSX_BUNDLE=OFF \
+                       -DSTATIC=ON \
+                       -DCMAKE_EXE_LINKER_FLAGS="-framework CoreFoundation" \
+                       -DCMAKE_C_FLAGS="-Werror -Wno-deprecated-declarations -Wno-incompatible-pointer-types \
+                       -Wno-cast-align -Wno-shorten-64-to-32 -Wno-aggregate-return" \
+                       -DMODULES="g711;audiounit;avcapture;ctrl_tcp;debug_cmd;ebuacip;echo;fakevideo;httpd;ice;menu;mwi;natpmp;presence;srtp;stun;turn;uuid;vidbridge;vumeter;mixausrc;mixminus;aubridge;aufile;ausine"
 
 #
-# baresip
+# Architecture settings
 #
 
-BARESIP_BUILD_FLAGS := \
-	STATIC=1 OPT_SPEED=1 \
-	USE_OPENSSL= USE_ZLIB= \
-	MOD_AUTODETECT= \
-	USE_FFMPEG=
+# Device (arm64) configuration
+DEVICE_CMAKE_FLAGS := -DCMAKE_OSX_ARCHITECTURES=arm64 \
+                      -DCMAKE_OSX_SYSROOT=$(SDK_ARM) \
+                      -DCMAKE_C_COMPILER=$(CC_ARM) \
+                      -DCMAKE_CXX_COMPILER=$(CPP_ARM)
 
-BARESIP_BUILD_FLAGS_X86_64 := \
-	$(BARESIP_BUILD_FLAGS) \
-	EXTRA_MODULES='g711 audiounit avcapture'
+# Simulator (arm64 and x86_64) configuration
+SIMULATOR_CMAKE_FLAGS := -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+                         -DCMAKE_OSX_SYSROOT=$(SDK_SIM) \
+                         -DCMAKE_C_COMPILER=$(CC_SIM) \
+                         -DCMAKE_CXX_COMPILER=$(CPP_SIM)
 
-BARESIP_BUILD_FLAGS_AARCH64 := \
-	$(BARESIP_BUILD_FLAGS) \
-	EXTRA_MODULES='g711 audiounit avcapture'
+# Configuration for libre
+DEVICE_RE_FLAGS := -DRE_INCLUDE_DIR=$(CONTRIB_DEVICE)/re/include/re \
+                   -DRE_LIBRARY=$(CONTRIB_DEVICE)/re/lib/libre.a \
+                   -Dre_DIR=$(CONTRIB_DEVICE)/re/lib/cmake/re
 
-BARESIP_BUILD_FLAGS_ARMV7 := \
-	$(BARESIP_BUILD_FLAGS) \
-	EXTRA_MODULES='g711 audiounit avcapture'
+SIMULATOR_RE_FLAGS := -DRE_INCLUDE_DIR=$(CONTRIB_SIMULATOR)/re/include/re \
+                      -DRE_LIBRARY=$(CONTRIB_SIMULATOR)/re/lib/libre.a \
+                      -Dre_DIR=$(CONTRIB_SIMULATOR)/re/lib/cmake/re
 
-BARESIP_BUILD_FLAGS_ARMV7S := \
-	$(BARESIP_BUILD_FLAGS) \
-	EXTRA_MODULES='g711 audiounit avcapture'
+# OpenSSL configuration
+DEVICE_SSL_FLAGS := -DOPENSSL_ROOT_DIR=$(CONTRIB_DEVICE_OPENSSL) \
+                    -DOPENSSL_INCLUDE_DIR=$(CONTRIB_DEVICE_OPENSSL)/include \
+                    -DOPENSSL_SSL_LIBRARY=$(CONTRIB_DEVICE_OPENSSL)/lib/libssl.a \
+                    -DOPENSSL_CRYPTO_LIBRARY=$(CONTRIB_DEVICE_OPENSSL)/lib/libcrypto.a
 
+SIMULATOR_SSL_FLAGS := -DOPENSSL_ROOT_DIR=$(CONTRIB_SIMULATOR_OPENSSL) \
+                       -DOPENSSL_INCLUDE_DIR=$(CONTRIB_SIMULATOR_OPENSSL)/include \
+                       -DOPENSSL_SSL_LIBRARY=$(CONTRIB_SIMULATOR_OPENSSL)/lib/libssl.a \
+                       -DOPENSSL_CRYPTO_LIBRARY=$(CONTRIB_SIMULATOR_OPENSSL)/lib/libcrypto.a
 
-baresip: librem libre
-	@rm -f $(BARESIP_PATH)/src/static.c ../baresip/libbaresip.*
-	@make -sC $(BARESIP_PATH) CC='$(CC_ARM) $(CC_ARM_FLAGS)' \
-		BUILD=$(BUILD_AARCH64)/baresip \
-		SYSROOT=$(ARMROOT) SYSROOT_ALT=$(ARMROOT_ALT) \
-		$(BARESIP_BUILD_FLAGS_AARCH64) $(EXTRA_AARCH64) \
-		PREFIX= DESTDIR=$(CONTRIB_AARCH64) \
-		install-static
+#
+# Targets
+#
 
-	@rm -f $(BARESIP_PATH)/src/static.c ../baresip/libbaresip.*
-	@make -sC $(BARESIP_PATH) CC='$(CC_ARM) $(CC_ARM_FLAGS)' \
-		BUILD=$(BUILD_ARMV7)/baresip \
-		SYSROOT=$(ARMROOT) SYSROOT_ALT=$(ARMROOT_ALT) \
-		$(BARESIP_BUILD_FLAGS_ARMV7) $(EXTRA_ARMV7) \
-		PREFIX= DESTDIR=$(CONTRIB_ARMV7) \
-		install-static
+.PHONY: contrib openssl libre baresip
 
-	@rm -f $(BARESIP_PATH)/src/static.c ../baresip/libbaresip.*
-	@make -sC $(BARESIP_PATH) CC='$(CC_ARM) $(CC_ARM_FLAGS)' \
-		BUILD=$(BUILD_ARMV7S)/baresip \
-		SYSROOT=$(ARMROOT) SYSROOT_ALT=$(ARMROOT_ALT) \
-		$(BARESIP_BUILD_FLAGS_ARMV7S) $(EXTRA_ARMV7S) \
-		PREFIX= DESTDIR=$(CONTRIB_ARMV7S) \
-		install-static
+# Main target: build baresip and its dependencies
+contrib: baresip info
 
-	@rm -f $(BARESIP_PATH)/src/static.c ../baresip/libbaresip.*
-	@make -sC $(BARESIP_PATH) CC='$(CC_SIM) $(CC_SIM_FLAGS)' \
-		BUILD=$(BUILD_X86_64)/baresip \
-		SYSROOT=$(SIMROOT) SYSROOT_ALT=$(SIMROOT_ALT) \
-		$(BARESIP_BUILD_FLAGS_X86_64) $(EXTRA_X86_64) \
-		PREFIX= DESTDIR=$(CONTRIB_X86_64) \
-		install-static
+#
+# OpenSSL
+#
+# Copies pre-built OpenSSL libraries and headers for device and simulator
+#
 
-	@lipo \
-		-arch x86_64 $(CONTRIB_X86_64)/lib/libbaresip.a \
-		-arch arm64 $(CONTRIB_AARCH64)/lib/libbaresip.a \
-		-arch armv7 $(CONTRIB_ARMV7)/lib/libbaresip.a \
-		-arch armv7s $(CONTRIB_ARMV7S)/lib/libbaresip.a \
-		-create -output $(CONTRIB_FAT)/lib/libbaresip.a
+# Ensure OpenSSL libraries for device and simulator are available
+openssl: $(CONTRIB_DEVICE_OPENSSL)/lib/libssl.a $(CONTRIB_SIMULATOR_OPENSSL)/lib/libssl.a
 
+define build_openssl_rule
+$(BUILD_OPENSSL)/$(1):
+	@echo "Building OpenSSL for $(1)"
+	mkdir -p $$@
+	tar -xzf $(OPENSSL_SOURCE) -C $$@ --strip-components=1
+	cd $$@ && ./Configure $(1) --prefix=$$@/install no-deprecated no-async no-shared no-tests
+	cd $$@ && make -j && make install_dev
+endef
 
+$(foreach target,$(OPENSSL_DEVICE_TARGETS),$(eval $(call build_openssl_rule,$(target))))
+$(foreach target,$(OPENSSL_SIMULATOR_TARGETS),$(eval $(call build_openssl_rule,$(target))))
+
+$(CONTRIB_DEVICE_OPENSSL)/lib/libssl.a: $(OPENSSL_DEVICE_TARGETS:%=$(BUILD_OPENSSL)/%)
+	mkdir -p $(CONTRIB_DEVICE_OPENSSL)
+	cp -a $(BUILD_OPENSSL)/$(firstword $(OPENSSL_DEVICE_TARGETS))/install/ $(CONTRIB_DEVICE_OPENSSL)/
+
+$(CONTRIB_SIMULATOR_OPENSSL)/lib/libssl.a: $(OPENSSL_SIMULATOR_TARGETS:%=$(BUILD_OPENSSL)/%)
+	mkdir -p $(CONTRIB_SIMULATOR_OPENSSL)/include
+	mkdir -p $(CONTRIB_SIMULATOR_OPENSSL)/lib
+	cp -a $(BUILD_OPENSSL)/$(firstword $(OPENSSL_SIMULATOR_TARGETS))/install/include/ $(CONTRIB_SIMULATOR_OPENSSL)/include/
+	lipo -create $(foreach target,$(OPENSSL_SIMULATOR_TARGETS),$(BUILD_OPENSSL)/$(target)/install/lib/libssl.a) -output $(CONTRIB_SIMULATOR_OPENSSL)/lib/libssl.a
+	lipo -create $(foreach target,$(OPENSSL_SIMULATOR_TARGETS),$(BUILD_OPENSSL)/$(target)/install/lib/libcrypto.a) -output $(CONTRIB_SIMULATOR_OPENSSL)/lib/libcrypto.a
+
+#
+# Build libre
+#
+# Build libre for device and simulator
+
+libre: openssl $(CONTRIB_DEVICE)/re/lib/libre.a $(CONTRIB_SIMULATOR)/re/lib/libre.a
+
+define build_libre
+# Configure libre for $(1)
+$(BUILD_$(1))/re/Makefile: $(CONTRIB_$(1)_OPENSSL)/lib/libssl.a
+	mkdir -p $(BUILD_$(1))/re
+	cd $(BUILD_$(1))/re && cmake $(LIBRE_PATH) \
+		-G "$(CMAKE_GENERATOR)" \
+		$(CMAKE_FLAGS_RE) \
+		$($(1)_CMAKE_FLAGS) \
+		$($(1)_SSL_FLAGS) \
+		-DCMAKE_INSTALL_PREFIX=$(CONTRIB_$(1))/re
+
+# Build and install libre for $(1)
+$(CONTRIB_$(1))/re/lib/libre.a: $(BUILD_$(1))/re/Makefile
+	cmake --build $(BUILD_$(1))/re --target install -- -j
+endef
+
+# Invoke build_libre for DEVICE and SIMULATOR
+$(eval $(call build_libre,DEVICE))
+$(eval $(call build_libre,SIMULATOR))
+
+#
+# Build baresip
+#
+# Build baresip for device and simulator
+
+baresip: libre $(CONTRIB_DEVICE)/baresip/lib/libbaresip.a $(CONTRIB_SIMULATOR)/baresip/lib/libbaresip.a
+
+define build_baresip
+# Configure baresip for $(1)
+$(BUILD_$(1))/baresip/Makefile: $(CONTRIB_$(1))/re/lib/libre.a
+	mkdir -p $(BUILD_$(1))/baresip
+	cd $(BUILD_$(1))/baresip && cmake $(BARESIP_PATH) \
+		-G "$(CMAKE_GENERATOR)" \
+		$(CMAKE_FLAGS_BARESIP) \
+		$($(1)_CMAKE_FLAGS) \
+		$($(1)_RE_FLAGS) \
+		$($(1)_SSL_FLAGS) \
+		-DCMAKE_INSTALL_PREFIX=$(CONTRIB_$(1))/baresip
+
+# Build and install baresip for $(1)
+$(CONTRIB_$(1))/baresip/lib/libbaresip.a: $(BUILD_$(1))/baresip/Makefile
+	cmake --build $(BUILD_$(1))/baresip --target install -- -j
+endef
+
+# Invoke build_baresip for DEVICE and SIMULATOR
+$(eval $(call build_baresip,DEVICE))
+$(eval $(call build_baresip,SIMULATOR))
+
+# Print results
 info:
-	@echo "SDK_VER:    $(SDK_VER)"
-	@echo "SDK_ARM:    $(SDK_ARM)"
-	@echo "SDK_SIM:    $(SDK_SIM)"
-	@echo "CC_ARM:     $(CC_ARM)"
-	@echo "CC_SIM:     $(CC_SIM)"
+	@echo "CONTRIB_DEVICE: $(CONTRIB_DEVICE)"
+	@echo "CONTRIB_SIMULATOR: $(CONTRIB_SIMULATOR)"
+	@echo "Done"

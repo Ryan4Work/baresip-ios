@@ -16,13 +16,12 @@ $ make contrib
 
 ## Install
 - Link XCode target with:
-    - `contrib/fat/lib/libbaresip.a`, `contrib/fat/lib/libre.a`, `contrib/fat/lib/librem.a`  
+    - `contrib/fat/lib/libbaresip.a`, `contrib/fat/lib/libre.a`
     - `libresolv.9.dlyb`
     - `AVFoundation`, `SystemConfiguration`, `CFNetwork`, `CoreMedia`, `AudioToolbox`, `CoreVideo` frameworks
 - Setup build settings:
     - header search path with:
         - `baresip/include`
         - `re/include`
-        - `rem/include`
     - library search path with:
         - `contrib/fat/lib`
