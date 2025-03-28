@@ -7,13 +7,14 @@
 
 BUILD_DIR   := build
 CONTRIB_DIR := contrib
+OUTPUT_DIR  := output
 
 include mk/contrib.mk
 
 all: contrib
 
 clean:
-	@rm -rf $(BUILD_DIR) $(CONTRIB_DIR)
+	@rm -rf $(BUILD_DIR) $(CONTRIB_DIR) $(OUTPUT_DIR)
 	@rm -rf baresip re openssl.tar.gz
 
 .PHONY: download

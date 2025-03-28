@@ -19,7 +19,7 @@ BARESIP_PATH  := $(SOURCE_PATH)/baresip
 
 BUILD_DIR     := $(CURDIR)/build
 CONTRIB_DIR   := $(CURDIR)/contrib
-OUTPUT_DIR    := $(CURDIR)/Libraries
+OUTPUT_DIR    := $(CURDIR)/output
 
 # Define build directories for device and simulator
 BUILD_OPENSSL				:= $(BUILD_DIR)/openssl
@@ -215,18 +215,21 @@ info: baresip
 
 output: baresip
 	rm -rf $(OUTPUT_DIR)
-	mkdir -p $(OUTPUT_DEVICE)/include
-	mkdir -p $(OUTPUT_SIMULATOR)/include
-	cp -r $(CONTRIB_DEVICE)/openssl/include/openssl $(OUTPUT_DEVICE)/include
-	cp -r $(CONTRIB_DEVICE)/re/include/re $(OUTPUT_DEVICE)/include
-	cp -r $(CONTRIB_DEVICE)/baresip/include $(OUTPUT_DEVICE)/include/baresip
-	cp -r $(CONTRIB_SIMULATOR)/openssl/include/openssl $(OUTPUT_SIMULATOR)/include
-	cp -r $(CONTRIB_SIMULATOR)/re/include/re $(OUTPUT_SIMULATOR)/include
-	cp -r $(CONTRIB_SIMULATOR)/baresip/include $(OUTPUT_SIMULATOR)/include/baresip
-
-	cp $(CONTRIB_DEVICE)/openssl/lib/*.a $(OUTPUT_DEVICE)
-	cp $(CONTRIB_DEVICE)/re/lib/libre.a $(OUTPUT_DEVICE)
-	cp $(CONTRIB_DEVICE)/baresip/lib/libbaresip.a $(OUTPUT_DEVICE)
-	cp $(CONTRIB_SIMULATOR)/openssl/lib/*.a $(OUTPUT_SIMULATOR)
-	cp $(CONTRIB_SIMULATOR)/re/lib/libre.a $(OUTPUT_SIMULATOR)
-	cp $(CONTRIB_SIMULATOR)/baresip/lib/libbaresip.a $(OUTPUT_SIMULATOR)
+	mkdir -p $(OUTPUT_DEVICE)
+	mkdir -p $(OUTPUT_SIMULATOR)
+	mkdir -p $(OUTPUT_DIR)/include/openssl
+	mkdir -p $(OUTPUT_DIR)/include/re
+	mkdir -p $(OUTPUT_DIR)/include/baresip
+	
+# 複製標頭文件到公共的 include 目錄
+	cp -r $(CONTRIB_DEVICE)/openssl/include/openssl/* $(OUTPUT_DIR)/include/openssl/
+	cp -r $(CONTRIB_DEVICE)/re/include/re/* $(OUTPUT_DIR)/include/re/
+	cp $(CONTRIB_DEVICE)/baresip/include/baresip.h $(OUTPUT_DIR)/include/baresip/
+	
+# 複製庫文件到各自的平台目錄
+	cp $(CONTRIB_DEVICE)/openssl/lib/*.a $(OUTPUT_DEVICE)/
+	cp $(CONTRIB_DEVICE)/re/lib/libre.a $(OUTPUT_DEVICE)/
+	cp $(CONTRIB_DEVICE)/baresip/lib/libbaresip.a $(OUTPUT_DEVICE)/
+	cp $(CONTRIB_SIMULATOR)/openssl/lib/*.a $(OUTPUT_SIMULATOR)/
+	cp $(CONTRIB_SIMULATOR)/re/lib/libre.a $(OUTPUT_SIMULATOR)/
+	cp $(CONTRIB_SIMULATOR)/baresip/lib/libbaresip.a $(OUTPUT_SIMULATOR)/
