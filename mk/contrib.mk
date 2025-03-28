@@ -5,7 +5,7 @@
 # Copyright (C) 2010 - 2020 Alfred E. Heggestad
 #
 
-DEPLOYMENT_TARGET_VERSION=12.0
+DEPLOYMENT_TARGET_VERSION=13.0
 
 #
 # Path settings
@@ -19,6 +19,7 @@ BARESIP_PATH  := $(SOURCE_PATH)/baresip
 
 BUILD_DIR     := $(CURDIR)/build
 CONTRIB_DIR   := $(CURDIR)/contrib
+OUTPUT_DIR    := $(CURDIR)/Libraries
 
 # Define build directories for device and simulator
 BUILD_OPENSSL				:= $(BUILD_DIR)/openssl
@@ -27,6 +28,9 @@ BUILD_SIMULATOR			:= $(BUILD_DIR)/simulator
 
 CONTRIB_DEVICE     := $(CONTRIB_DIR)/device
 CONTRIB_SIMULATOR  := $(CONTRIB_DIR)/simulator
+
+OUTPUT_DEVICE      := $(OUTPUT_DIR)/iPhoneOS
+OUTPUT_SIMULATOR   := $(OUTPUT_DIR)/iPhoneSimulator
 
 CONTRIB_DEVICE_OPENSSL    := $(CONTRIB_DEVICE)/openssl
 CONTRIB_SIMULATOR_OPENSSL := $(CONTRIB_SIMULATOR)/openssl
@@ -111,7 +115,7 @@ SIMULATOR_SSL_FLAGS := -DOPENSSL_ROOT_DIR=$(CONTRIB_SIMULATOR_OPENSSL) \
 # Targets
 #
 
-.PHONY: contrib openssl libre baresip
+.PHONY: contrib openssl libre baresip output info
 
 # Main target: build baresip and its dependencies
 contrib: baresip info
@@ -204,7 +208,25 @@ $(eval $(call build_baresip,DEVICE))
 $(eval $(call build_baresip,SIMULATOR))
 
 # Print results
-info:
+info: baresip
 	@echo "CONTRIB_DEVICE: $(CONTRIB_DEVICE)"
 	@echo "CONTRIB_SIMULATOR: $(CONTRIB_SIMULATOR)"
 	@echo "Done"
+
+output: baresip
+	rm -rf $(OUTPUT_DIR)
+	mkdir -p $(OUTPUT_DEVICE)/include
+	mkdir -p $(OUTPUT_SIMULATOR)/include
+	cp -r $(CONTRIB_DEVICE)/openssl/include/openssl $(OUTPUT_DEVICE)/include
+	cp -r $(CONTRIB_DEVICE)/re/include/re $(OUTPUT_DEVICE)/include
+	cp -r $(CONTRIB_DEVICE)/baresip/include $(OUTPUT_DEVICE)/include/baresip
+	cp -r $(CONTRIB_SIMULATOR)/openssl/include/openssl $(OUTPUT_SIMULATOR)/include
+	cp -r $(CONTRIB_SIMULATOR)/re/include/re $(OUTPUT_SIMULATOR)/include
+	cp -r $(CONTRIB_SIMULATOR)/baresip/include $(OUTPUT_SIMULATOR)/include/baresip
+
+	cp $(CONTRIB_DEVICE)/openssl/lib/*.a $(OUTPUT_DEVICE)
+	cp $(CONTRIB_DEVICE)/re/lib/libre.a $(OUTPUT_DEVICE)
+	cp $(CONTRIB_DEVICE)/baresip/lib/libbaresip.a $(OUTPUT_DEVICE)
+	cp $(CONTRIB_SIMULATOR)/openssl/lib/*.a $(OUTPUT_SIMULATOR)
+	cp $(CONTRIB_SIMULATOR)/re/lib/libre.a $(OUTPUT_SIMULATOR)
+	cp $(CONTRIB_SIMULATOR)/baresip/lib/libbaresip.a $(OUTPUT_SIMULATOR)

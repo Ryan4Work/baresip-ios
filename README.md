@@ -10,8 +10,9 @@
 
 To build static libraries for iOS run the following command:
 ```shell
+$ make clean
 $ make download
-$ make contrib
+$ make
 ```
 
 ## Install

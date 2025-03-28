@@ -20,5 +20,5 @@ clean:
 download:
 	rm -fr baresip re openssl.tar.gz
 	curl -L -o openssl.tar.gz https://www.openssl.org/source/openssl-3.4.0.tar.gz
-	git clone --depth 1 -b v3.16.0 https://github.com/baresip/baresip.git
-	git clone --depth 1 -b v3.16.0 https://github.com/baresip/re.git
+	git clone --depth 1 -b v3.21.0 https://github.com/baresip/baresip.git
+	git clone --depth 1 -b v3.21.0 https://github.com/baresip/re.git
